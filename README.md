@@ -1,7 +1,7 @@
 # EBIT_analysis
 
-This folder contains scripts for analysis data from EBIT. 
-
+This folder contains scripts for data analysis from EBIT. 
+Data files available from local sources.
 
 *****************************
 analysis.py
