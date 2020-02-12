@@ -78,22 +78,22 @@ def norm_charge(charge_arr, index):
 # Input variables for the program
 # Figure flags
 dpiCount = 70  # A variable to control size of the figure.
-Flag_Fig0 = 1  # Flag for plotting/displaying figure - Raw spectra
-Flag_Fig1 = 1  # Flag for plotting/displaying figure - Subtracted spectra and fits
-Flag_Fig2 = 1  # Flag for plotting/displaying figure - Width vs Mean
+Flag_Fig0 = 0  # Flag for plotting/displaying figure - Raw spectra
+Flag_Fig1 = 0  # Flag for plotting/displaying figure - Subtracted spectra and fits
+Flag_Fig2 = 0  # Flag for plotting/displaying figure - Width vs Mean
 Flag_Fig3 = 1  # Flag for plotting/displaying figure - Plots of Time ratio and Charge ratio
 colors = itertools.cycle(["b", "g", "r", "c", "m", "y", "k"])  # Colors database for plotting
 
 # Fitting parameters
-time_const = 0.03  # Bin width during measurement in microseconds (original 30 ns)
+time_const = 0.03  # Bin width during measurement in microseconds (Default 30 ns)
 wid = 0.5  # Initial variables for fitting peak - width of peak (in us)
-dis = 40
-h = 75
-# Charge state data
-mass_Cs = 133
-z_Cs = 55
+dis = 40  # Distance (in channel) between two consecutive peak search
+h = 75  # Threshold for peak search
+# mass_Cs = 133
+# z_Cs = 55
+
 # ----------------------------------------
-# An inline test function for Gaussian distribution, may be useless for this program.
+# An inline test function for Gaussian distribution, may be useless for this program but good tool for future use.
 # gaus = lambda x, *p: p[0]*exp(-((x-p[1])/p[2])**2)
 
 # File read and data sorting performed here. Zeroth (First) line is header. usecols could be set to 1 but I have left
