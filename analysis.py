@@ -82,6 +82,8 @@ Flag_Fig0 = 0  # Flag for plotting/displaying figure - Raw spectra
 Flag_Fig1 = 0  # Flag for plotting/displaying figure - Subtracted spectra and fits
 Flag_Fig2 = 0  # Flag for plotting/displaying figure - Width vs Mean
 Flag_Fig3 = 1  # Flag for plotting/displaying figure - Plots of Time ratio and Charge ratio
+Flag_Fig4 = 1  # Flag for plotting/displaying final figure - Peaks identified by charge state
+
 colors = itertools.cycle(["b", "g", "r", "c", "m", "y", "k"])  # Colors database for plotting
 
 # Fitting parameters
@@ -89,26 +91,26 @@ time_const = 0.03  # Bin width during measurement in microseconds (Default 30 ns
 wid = 0.5  # Initial variables for fitting peak - width of peak (in us)
 dis = 40  # Distance (in channel) between two consecutive peak search
 h = 75  # Threshold for peak search
-# mass_Cs = 133
-# z_Cs = 55
-
+mass_Cs = 133  # Mass of ion
+z_Cs = 55  # Atomic number of ion
+length = 1200  # Length of spectrum used in analysis (Max channel number)
 # ----------------------------------------
 # An inline test function for Gaussian distribution, may be useless for this program but good tool for future use.
 # gaus = lambda x, *p: p[0]*exp(-((x-p[1])/p[2])**2)
 
 # File read and data sorting performed here. Zeroth (First) line is header. usecols could be set to 1 but I have left
 # it as 'range' to make it future proof. Range selects number of columns to be imported.
-# df is the data file and df_back is the background file.
+# data_file is the data file and data_file_bkg is the background file.
 data_file = pd.read_csv("./data/Cs_chargebred_1ms_13_12_2019__2_02_33_PM.txt", header=0, usecols=[i for i in range(1)])
 data_file_bkg = pd.read_csv("./data/Cs_chargebred_1ms_bkg_13_12_2019__2_09_10_PM.txt", header=0,
                             usecols=[i for i in range(1)])
 x = pd.Series(time_const * np.arange(len(data_file)))  # Creating an x-axis (time) as this is a 1D data
-dd = pd.concat([x, data_file], axis=1)  # Concatenating data in a pandas dataframe from x and y variables.
+dd = pd.concat([x[1:length], data_file[1:length]], axis=1)  # Concatenating data in a pandas dataframe from x and y variables.
 dd.columns = ['Time', 'Counts']  # Adding column headers manually
 # x = dd.loc[:, 'Time']
 y_raw = dd.loc[:, 'Counts']  # y raw data
 
-dd = pd.concat([x, data_file_bkg], axis=1)  # Creating datframe for background data
+dd = pd.concat([x[1:length], data_file_bkg[1:length]], axis=1)  # Creating datframe for background data
 dd.columns = ['Time', 'Counts']  # Adding column headers manually
 y_back = dd.loc[:, 'Counts']  # y background data
 
@@ -119,8 +121,8 @@ y_vals = y_raw - y_back  # Final subtracted y values
 if Flag_Fig0 == 1:
     # Section to see visually how spectra look.
     plt.figure(0, figsize=plt.figaspect(0.5), dpi=dpiCount)
-    plt.plot(x, y_raw, '-g', Linewidth=1, label="Raw Data")
-    plt.plot(x, y_back, '-r', Linewidth=1, label="Background")
+    plt.plot(x_vals, y_raw, '-g', Linewidth=1, label="Raw Data")
+    plt.plot(x_vals, y_back, '-r', Linewidth=1, label="Background")
     plt.plot(x_vals, y_vals, '-k', Linewidth=1, label="Subtracted Data")
     plt.legend(loc="upper right", fontsize=18)
     plt.xlim(10, 70)
@@ -189,16 +191,16 @@ time_ratio_round = round_array(time_ratio, 2)  # Rounded to 2 decimal places but
 charge = np.arange(1, z_Cs)
 charge_state_min = 1
 charge_state_norm_index = 0
-minsum_arr = []
+Res_arr = []
 # Time ratio from experimental data
 for charge_state_min in range(1, z_Cs):
     charge_state_max = charge_state_min + len(Peak_parameters) - 1
     charge_state_rev_arr = reverse_count(charge_state_min, charge_state_max)    # Charge array in reverse order created
     charge_state_arr = norm_charge(charge_state_rev_arr, charge_state_norm_index)   # Normalized charge state array
-    minsum = abs(sum(charge_state_arr - time_ratio))
-    minsum_arr.append(minsum)
+    msum = abs(sum(charge_state_arr - time_ratio))
+    Res_arr.append(msum)
 
-charge_state_min =  minsum_arr.index(min(minsum_arr)) + 1
+charge_state_min = Res_arr.index(min(Res_arr)) + 1
 charge_state_max = charge_state_min + len(Peak_parameters) - 1
 charge_state_rev_arr = reverse_count(charge_state_min, charge_state_max)  # Charge array in reverse order created
 charge_state_arr = norm_charge(charge_state_rev_arr, charge_state_norm_index)  # Normalized charge state array
@@ -221,4 +223,28 @@ Peak_data = pd.DataFrame({'Amplitude': Peak_parameters[:, 0], 'Amplitude_Error':
 print(Peak_data)
 Peak_data.to_csv('Fit_vals.csv', index=False)
 
+SSM = sum((charge_state_arr - time_ratio)**2)
+
+print("Least sum is %f " % SSM)
+
+
+# Plotting final spectra with charge identified peaks.
+plt.figure(4, figsize=plt.figaspect(0.5), dpi=dpiCount)
+plt.plot(x_vals, y_vals, '-k', Linewidth=1, label="Data")
+
+charge_peak = charge_state_max
+for npeak in range(len(peaks)):  # First level for rows
+    if Flag_Fig4 == 1:
+        labelFit = '%d+' % charge_peak  # Dynamic label maker
+        plt.plot(x_vals, Gaus(x_vals, Peak_parameters[npeak, 0], Peak_parameters[npeak, 2], Peak_parameters[npeak, 4]),
+                 color=next(colors), label=labelFit)  # Index 0,2,4 are Amplitude, Mean and Width
+        charge_peak -= 1
+plt.legend(loc="upper right", fontsize=14)
+plt.xlim(15, 75)
+plt.xticks(fontsize=14)
+plt.xlabel(r'Time ($\mu$ s)', fontsize=18)
+plt.ylim(0, round(max(y_raw), -2))
+plt.yticks(fontsize=14)
+plt.ylabel('Counts', fontsize=18)
+plt.savefig('Fit.png')  # FIle saving
 plt.show()  # This should be at the end so that all the plt objects show
