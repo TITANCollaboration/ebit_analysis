@@ -102,12 +102,12 @@ colors = itertools.cycle(["b", "g", "r", "c", "m", "y", "k"])  # Colors database
 
 # Fitting parameters
 time_const = 0.03  # Bin width during measurement in microseconds (Default 30 ns)
-wid = .5  # Initial variables for fitting peak - width of peak (in us)
+width = .5  # Initial variables for fitting peak - width of peak (in us)
 dis = 40  # Distance (in channel) between two consecutive peak search
 h = 75  # Threshold for peak search
 mass_Cs = 133  # Mass of ion
 z_Cs = 55  # Atomic number of ion
-length = 1500  # Length of spectrum used in analysis (Max channel number)
+length = 1200  # Length of spectrum used in analysis (Max channel number)
 length_min = 1
 # ----------------------------------------
 # An inline test function for Gaussian distribution, may be useless for this program but good tool for future use.
@@ -118,8 +118,12 @@ length_min = 1
 # data_file is the data file and data_file_bkg is the background file.
 #data_file = np.loadtxt('Cs.txt', dtype=int, comments='#', delimiter=None, skiprows=1, unpack=False)
 #data_file_bkg = np.loadtxt('Cs1.txt', dtype=int, comments='#', delimiter=None, skiprows=1, unpack=False)
-data_file = pd.read_csv("./data/Cs.txt", header=0, usecols=[i for i in range(1)])
-data_file_bkg = pd.read_csv("./data/Cs1.txt", header=0,
+data = input("Enter nonbkg ")
+bkg = input("Enter bkg ")
+input1 ='./data/{0}.txt'.format(data)
+input2 ='./data/{0}.txt'.format(bkg)
+data_file = pd.read_csv(input1, header=0, usecols=[i for i in range(1)])
+data_file_bkg = pd.read_csv(input2, header=0,
                             usecols=[i for i in range(1)])
 x = pd.Series(time_const * np.arange(len(data_file)))  # Creating an x-axis (time) as this is a 1D data
 dd = pd.concat([x[length_min:length], data_file[length_min:length]], axis=1)  # Concatenating data in a pandas dataframe from x and y variables.
@@ -162,7 +166,7 @@ if Flag_Fig1 == 1:
 ysmooth = signal.savgol_filter(y_vals, 25, 3)
 maxInd = argrelextrema(ysmooth, np.greater, order=10)
 smpeaks = ysmooth[maxInd[0]]
-print(smpeaks)
+#print(smpeaks)
 negMax = np.where(smpeaks <1)
 negMax1 = negMax[0].tolist()
 maxInd1=maxInd[0].tolist()
@@ -170,18 +174,21 @@ smpeaks1 = smpeaks.tolist()
 for i in sorted(negMax1, reverse = True):
     del maxInd1[i]
     del smpeaks1[i]
-print(smpeaks1)
+#print(smpeaks1)
 smpeaks3=np.asarray(smpeaks1)
 maxPk = np.amax(smpeaks)
-noise = np.where(smpeaks3 < 0.05*maxPk)
+noise = np.where(smpeaks3 < 0.01*maxPk)
 noise1 = noise[0].tolist()
 #print(maxPk)
 for i in sorted(noise1, reverse = True):
     del maxInd1[i]
     del smpeaks1[i]
 peaks1= [0.03 * i for i in maxInd1]
+print(peaks1)
 peaks2 = np.asarray(peaks1)
-peaks=np.asarray(maxInd1)
+peaks = np.asarray(maxInd1)
+print(peaks)
+print(peaks2)
 smpeaks2=np.asarray(smpeaks1)
 print(smpeaks2)
 
@@ -199,7 +206,7 @@ for npeak in range(len(peaks)):  # First level for rows
     i = npeak + 0  # Diagnostic step to change index of peak. In some cases it can find abnormal peaks.
     Centroid_guess = time_const * peaks[i]  # Initial guess for Centroid. It can be a number or in this case taken
     # from peaks centroid (channel number x dwell time)
-    fit_par, var = FitFuncCentroid(x_vals, y_vals, Centroid_guess, wid, time_const)  # fit_par are fit parameters
+    fit_par, var = FitFuncCentroid(x_vals, y_vals, Centroid_guess, width, time_const)  # fit_par are fit parameters
     # whereas errors are filled in variance matrix (var)
     fit_error = np.sqrt(np.diag(var))
     for j in range(len(fit_par)):
