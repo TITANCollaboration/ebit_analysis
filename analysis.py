@@ -93,7 +93,7 @@ dis = 40  # Distance (in channel) between two consecutive peak search
 h = 75  # Threshold for peak search
 mass_Cs = 133  # Mass of ion
 z_Cs = 55  # Atomic number of ion
-length = 1200  # Length of spectrum used in analysis (Max channel number)
+length = 1500  # Length of spectrum used in analysis (Max channel number)
 # ----------------------------------------
 # An inline test function for Gaussian distribution, may be useless for this program but good tool for future use.
 # gaus = lambda x, *p: p[0]*exp(-((x-p[1])/p[2])**2)
@@ -159,6 +159,7 @@ for npeak in range(len(peaks)):  # First level for rows
     for j in range(len(fit_par)):
         Peak_parameters[npeak, 2 * j] = fit_par[j]  # Filling peak parameters in columns
         Peak_parameters[npeak, 2 * j + 1] = fit_error[j]  # Filling error data in columns
+
     if Flag_Fig1 == 1:
         labelFit = 'Peak %d' % i  # Dynamic label maker
         plt.plot(x_vals, Gaus(x_vals, Peak_parameters[npeak, 0], Peak_parameters[npeak, 2], Peak_parameters[npeak, 4]),
@@ -204,6 +205,7 @@ charge_state_min = Res_arr.index(min(Res_arr)) + 1
 charge_state_max = charge_state_min + len(Peak_parameters) - 1
 charge_state_rev_arr = reverse_count(charge_state_min, charge_state_max)  # Charge array in reverse order created
 charge_state_arr = norm_charge(charge_state_rev_arr, charge_state_norm_index)  # Normalized charge state array
+charge_state_arr = np.asarray(charge_state_arr)
 
 if Flag_Fig3 == 1:
     plt.figure(3, figsize=plt.figaspect(0.5), dpi=dpiCount)
@@ -217,7 +219,7 @@ if Flag_Fig3 == 1:
 Peak_data = pd.DataFrame({'Amplitude': Peak_parameters[:, 0], 'Amplitude_Error': Peak_parameters[:, 1],
                           'Mean': Peak_parameters[:, 2], 'Mean_Error': Peak_parameters[:, 3],
                           'Width': Peak_parameters[:, 4], 'Width_Error': Peak_parameters[:, 5],
-                          'Time ratio': time_ratio[:]})
+                          'Time ratio': time_ratio[:], 'Charge ratio': charge_state_arr[:] })
 
 # Showing data on screen terminal and writing file to external csv.
 print(Peak_data)
