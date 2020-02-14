@@ -11,7 +11,13 @@ import pandas as pd
 from scipy import optimize
 from scipy.signal import find_peaks
 import itertools
-
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from scipy import signal
+from scipy import optimize
+from scipy.signal import argrelextrema
+import itertools
 
 # Define some functions to be used
 # Simple Gaussian distribution with amplitude, mean and width
@@ -25,6 +31,7 @@ def Gaus(x_local, amplitude, mean, width):
 # x variables; y variables; lower_cut (us); upper cut (us); width of gauss peak; and sampling dwell time used
 # in DAQ recording. Dwell time was in nanoseconds but here you need to enter in microseconds, e.g. 30 ns = 0.03 us.
 def FitFuncCentroid(x_local_for_fit, y_local_for_fit, Cent, width, dwell_time):
+    global best_val, covar
     range_cut = 2.0 * width
     # Centroid+-range_cut gives the left and right range for fitting.
     rl_local = int((Cent - range_cut) / dwell_time)  # range converted to integer count
@@ -36,7 +43,11 @@ def FitFuncCentroid(x_local_for_fit, y_local_for_fit, Cent, width, dwell_time):
 
     # This fitting function utilizes optimize function from scipy. It requires a function, x and y variables, and
     # initial parameters. If initial parameters are way off, fit will not converge.
-    best_val, covar = optimize.curve_fit(Gaus, x_temp, y_temp, init_val)
+
+    try:
+            best_val, covar = optimize.curve_fit(Gaus, x_temp, y_temp, init_val)
+    except RuntimeError:
+            pass
     # Errors in the fit parameters can be calculated below but I will calculate them later in-line to get more control.
     # errors = np.sqrt(np.diag(covar))
     # print('Amplitude is ', best_val[0], '(', errors[0], ')')
@@ -79,21 +90,25 @@ def norm_charge(charge_arr, index):
 # Figure flags
 dpiCount = 70  # A variable to control size of the figure.
 Flag_Fig0 = 0  # Flag for plotting/displaying figure - Raw spectra
-Flag_Fig1 = 0  # Flag for plotting/displaying figure - Subtracted spectra and fits
+Flag_Fig1 = 1  # Flag for plotting/displaying figure - Subtracted spectra and fits
 Flag_Fig2 = 0  # Flag for plotting/displaying figure - Width vs Mean
 Flag_Fig3 = 1  # Flag for plotting/displaying figure - Plots of Time ratio and Charge ratio
 Flag_Fig4 = 1  # Flag for plotting/displaying final figure - Peaks identified by charge state
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
 
 colors = itertools.cycle(["b", "g", "r", "c", "m", "y", "k"])  # Colors database for plotting
 
 # Fitting parameters
 time_const = 0.03  # Bin width during measurement in microseconds (Default 30 ns)
-wid = 0.5  # Initial variables for fitting peak - width of peak (in us)
+wid = .5  # Initial variables for fitting peak - width of peak (in us)
 dis = 40  # Distance (in channel) between two consecutive peak search
 h = 75  # Threshold for peak search
 mass_Cs = 133  # Mass of ion
 z_Cs = 55  # Atomic number of ion
-length = 1200  # Length of spectrum used in analysis (Max channel number)
+length = 1500  # Length of spectrum used in analysis (Max channel number)
+length_min = 1
 # ----------------------------------------
 # An inline test function for Gaussian distribution, may be useless for this program but good tool for future use.
 # gaus = lambda x, *p: p[0]*exp(-((x-p[1])/p[2])**2)
@@ -101,16 +116,18 @@ length = 1200  # Length of spectrum used in analysis (Max channel number)
 # File read and data sorting performed here. Zeroth (First) line is header. usecols could be set to 1 but I have left
 # it as 'range' to make it future proof. Range selects number of columns to be imported.
 # data_file is the data file and data_file_bkg is the background file.
-data_file = pd.read_csv("./data/Cs_chargebred_1ms_13_12_2019__2_02_33_PM.txt", header=0, usecols=[i for i in range(1)])
-data_file_bkg = pd.read_csv("./data/Cs_chargebred_1ms_bkg_13_12_2019__2_09_10_PM.txt", header=0,
+#data_file = np.loadtxt('Cs.txt', dtype=int, comments='#', delimiter=None, skiprows=1, unpack=False)
+#data_file_bkg = np.loadtxt('Cs1.txt', dtype=int, comments='#', delimiter=None, skiprows=1, unpack=False)
+data_file = pd.read_csv("./data/Cs.txt", header=0, usecols=[i for i in range(1)])
+data_file_bkg = pd.read_csv("./data/Cs1.txt", header=0,
                             usecols=[i for i in range(1)])
 x = pd.Series(time_const * np.arange(len(data_file)))  # Creating an x-axis (time) as this is a 1D data
-dd = pd.concat([x[1:length], data_file[1:length]], axis=1)  # Concatenating data in a pandas dataframe from x and y variables.
+dd = pd.concat([x[length_min:length], data_file[length_min:length]], axis=1)  # Concatenating data in a pandas dataframe from x and y variables.
 dd.columns = ['Time', 'Counts']  # Adding column headers manually
 # x = dd.loc[:, 'Time']
 y_raw = dd.loc[:, 'Counts']  # y raw data
 
-dd = pd.concat([x[1:length], data_file_bkg[1:length]], axis=1)  # Creating datframe for background data
+dd = pd.concat([x[length_min:length], data_file_bkg[length_min:length]], axis=1)  # Creating datframe for background data
 dd.columns = ['Time', 'Counts']  # Adding column headers manually
 y_back = dd.loc[:, 'Counts']  # y background data
 
@@ -141,9 +158,38 @@ if Flag_Fig1 == 1:
 # Fitting of several peaks will start here
 
 # Finding peaks in the processed spectrum
-peaks, _ = find_peaks(y_vals, distance=dis, height=h)
-# plt.plot(peaks * time_const, y_vals[peaks], "x") # Plotting peak with x markers
+#peaks, _ = find_peaks(y_vals, distance=dis, height=h)
+ysmooth = signal.savgol_filter(y_vals, 25, 3)
+maxInd = argrelextrema(ysmooth, np.greater, order=10)
+smpeaks = ysmooth[maxInd[0]]
+print(smpeaks)
+negMax = np.where(smpeaks <1)
+negMax1 = negMax[0].tolist()
+maxInd1=maxInd[0].tolist()
+smpeaks1 = smpeaks.tolist()
+for i in sorted(negMax1, reverse = True):
+    del maxInd1[i]
+    del smpeaks1[i]
+print(smpeaks1)
+smpeaks3=np.asarray(smpeaks1)
+maxPk = np.amax(smpeaks)
+noise = np.where(smpeaks3 < 0.05*maxPk)
+noise1 = noise[0].tolist()
+#print(maxPk)
+for i in sorted(noise1, reverse = True):
+    del maxInd1[i]
+    del smpeaks1[i]
+peaks1= [0.03 * i for i in maxInd1]
+peaks2 = np.asarray(peaks1)
+peaks=np.asarray(maxInd1)
+smpeaks2=np.asarray(smpeaks1)
+print(smpeaks2)
 
+plt.plot(peaks2 * time_const, y_vals[peaks2], "x") # Plotting peak with x markers
+plt.plot(peaks2, smpeaks2,'x',color='red',markersize=6)
+for xy in zip(peaks2,smpeaks2):
+    ax.annotate('(%s, %s)' % xy, xy=xy, textcoords='data')
+#plt.show()
 # Create an empty array for storing calculated parameters. len(peak) makes the length of array based on number
 # of peaks found, and 6 column is twice the fitted number of parameter. If fit function has more parameters, change this
 # number accordingly.
@@ -239,6 +285,7 @@ for npeak in range(len(peaks)):  # First level for rows
         plt.plot(x_vals, Gaus(x_vals, Peak_parameters[npeak, 0], Peak_parameters[npeak, 2], Peak_parameters[npeak, 4]),
                  color=next(colors), label=labelFit)  # Index 0,2,4 are Amplitude, Mean and Width
         charge_peak -= 1
+
 plt.legend(loc="upper right", fontsize=14)
 plt.xlim(15, 75)
 plt.xticks(fontsize=14)
