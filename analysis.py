@@ -1,4 +1,4 @@
-"""
+""                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        """
 Program to calculate charge states for EBIT data. First step involves fitting all peaks. Second step is getting
 charge state ratios from peak centroids.
 Fitting program starts here
@@ -102,12 +102,12 @@ colors = itertools.cycle(["b", "g", "r", "c", "m", "y", "k"])  # Colors database
 
 # Fitting parameters
 time_const = 0.03  # Bin width during measurement in microseconds (Default 30 ns)
-width = .5  # Initial variables for fitting peak - width of peak (in us)
+width = .3  # Initial variables for fitting peak - width of peak (in us)
 dis = 40  # Distance (in channel) between two consecutive peak search
 h = 75  # Threshold for peak search
 mass_Cs = 133  # Mass of ion
 z_Cs = 55  # Atomic number of ion
-length = 1200  # Length of spectrum used in analysis (Max channel number)
+length = 1500  # Length of spectrum used in analysis (Max channel number)
 length_min = 1
 # ----------------------------------------
 # An inline test function for Gaussian distribution, may be useless for this program but good tool for future use.
@@ -184,13 +184,13 @@ for i in sorted(noise1, reverse = True):
     del maxInd1[i]
     del smpeaks1[i]
 peaks1= [0.03 * i for i in maxInd1]
-print(peaks1)
+#print(peaks1)
 peaks2 = np.asarray(peaks1)
 peaks = np.asarray(maxInd1)
-print(peaks)
-print(peaks2)
+#print(peaks)
+#print(peaks2)
 smpeaks2=np.asarray(smpeaks1)
-print(smpeaks2)
+#print(smpeaks2)
 
 plt.plot(peaks2 * time_const, y_vals[peaks2], "x") # Plotting peak with x markers
 plt.plot(peaks2, smpeaks2,'x',color='red',markersize=6)
@@ -212,6 +212,7 @@ for npeak in range(len(peaks)):  # First level for rows
     for j in range(len(fit_par)):
         Peak_parameters[npeak, 2 * j] = fit_par[j]  # Filling peak parameters in columns
         Peak_parameters[npeak, 2 * j + 1] = fit_error[j]  # Filling error data in columns
+
     if Flag_Fig1 == 1:
         labelFit = 'Peak %d' % i  # Dynamic label maker
         plt.plot(x_vals, Gaus(x_vals, Peak_parameters[npeak, 0], Peak_parameters[npeak, 2], Peak_parameters[npeak, 4]),
@@ -233,10 +234,28 @@ if Flag_Fig2 == 1:
     # Plot width vs Mean
     plt.figure(2, figsize=plt.figaspect(0.5), dpi=dpiCount)
     plt.plot(Peak_parameters[:, 2], Peak_parameters[:, 4], '--or')
+#print(Peak_parameters[:,5])
+# For removing phantom peaks
+Peak_parameters_filtered_tpl=[]
+#print(len(Peak_parameters))
+#print(range(len(Peak_parameters)))
+for i in range(len(Peak_parameters)):
+    print(i)
+    #print(Peak_parameters[i,5])
+    if Peak_parameters[i,5] < 0.08:
+        Peak_parameters_filtered_tpl.append(Peak_parameters[i,:])
+
+        #print(Peak_parameters_filtered_tpl)
+        Peak_parameters_filtered = np.array(Peak_parameters_filtered_tpl)
+
+
+#print(Peak_parameters)
+print(Peak_parameters_filtered)
+
 
 # Starting on charge state
 # Ion recorded in this run Cs
-time_ratio = (Peak_parameters[:, 2] / Peak_parameters[0, 2]) ** 2  # time ratio calculated form experimental data
+time_ratio = (Peak_parameters_filtered[:, 2] / Peak_parameters_filtered[0, 2]) ** 2  # time ratio calculated form experimental data
 time_ratio_round = round_array(time_ratio, 2)  # Rounded to 2 decimal places but not used
 
 # Created a loop to find minimum of deviation of charge state ratios and time ratios. The minimum of difference will
@@ -247,14 +266,14 @@ charge_state_norm_index = 0
 Res_arr = []
 # Time ratio from experimental data
 for charge_state_min in range(1, z_Cs):
-    charge_state_max = charge_state_min + len(Peak_parameters) - 1
+    charge_state_max = charge_state_min + len(Peak_parameters_filtered) - 1
     charge_state_rev_arr = reverse_count(charge_state_min, charge_state_max)    # Charge array in reverse order created
     charge_state_arr = norm_charge(charge_state_rev_arr, charge_state_norm_index)   # Normalized charge state array
     msum = abs(sum(charge_state_arr - time_ratio))
     Res_arr.append(msum)
 
 charge_state_min = Res_arr.index(min(Res_arr)) + 1
-charge_state_max = charge_state_min + len(Peak_parameters) - 1
+charge_state_max = charge_state_min + len(Peak_parameters_filtered) - 1
 charge_state_rev_arr = reverse_count(charge_state_min, charge_state_max)  # Charge array in reverse order created
 charge_state_arr = norm_charge(charge_state_rev_arr, charge_state_norm_index)  # Normalized charge state array
 
@@ -267,9 +286,9 @@ if Flag_Fig3 == 1:
     plt.legend(loc="lower right", fontsize=14)
 
 # Creating pandas dataframe (Peak_datasets) from numpy array (Peak_parameters)
-Peak_data = pd.DataFrame({'Amplitude': Peak_parameters[:, 0], 'Amplitude_Error': Peak_parameters[:, 1],
-                          'Mean': Peak_parameters[:, 2], 'Mean_Error': Peak_parameters[:, 3],
-                          'Width': Peak_parameters[:, 4], 'Width_Error': Peak_parameters[:, 5],
+Peak_data = pd.DataFrame({'Amplitude': Peak_parameters_filtered[:, 0], 'Amplitude_Error': Peak_parameters_filtered[:, 1],
+                          'Mean': Peak_parameters_filtered[:, 2], 'Mean_Error': Peak_parameters_filtered[:, 3],
+                          'Width': Peak_parameters_filtered[:, 4], 'Width_Error': Peak_parameters_filtered[:, 5],
                           'Time ratio': time_ratio[:]})
 
 # Showing data on screen terminal and writing file to external csv.
@@ -286,10 +305,10 @@ plt.figure(4, figsize=plt.figaspect(0.5), dpi=dpiCount)
 plt.plot(x_vals, y_vals, '-k', Linewidth=1, label="Data")
 
 charge_peak = charge_state_max
-for npeak in range(len(peaks)):  # First level for rows
+for npeak in range(len(Peak_parameters_filtered)):  # First level for rows
     if Flag_Fig4 == 1:
         labelFit = '%d+' % charge_peak  # Dynamic label maker
-        plt.plot(x_vals, Gaus(x_vals, Peak_parameters[npeak, 0], Peak_parameters[npeak, 2], Peak_parameters[npeak, 4]),
+        plt.plot(x_vals, Gaus(x_vals, Peak_parameters_filtered[npeak, 0], Peak_parameters_filtered[npeak, 2], Peak_parameters_filtered[npeak, 4]),
                  color=next(colors), label=labelFit)  # Index 0,2,4 are Amplitude, Mean and Width
         charge_peak -= 1
 
